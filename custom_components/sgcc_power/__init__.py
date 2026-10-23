@@ -18,8 +18,15 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import SgccPowerDataCoordinator, SgccPowerRuntimeData
+from .diagnostics import async_get_config_entry_diagnostics
 from .models import DeviceProfile, LoginSession
 from .synthetic_device import build_device_profile
+
+__all__ = [
+    "async_get_config_entry_diagnostics",
+    "async_setup_entry",
+    "async_unload_entry",
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
