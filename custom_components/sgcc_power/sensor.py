@@ -229,7 +229,7 @@ class SgccPowerElectricitySensor(
         account = self.usage.account
         return DeviceInfo(
             identifiers={(DOMAIN, account.account_id)},
-            name=f"{account.name} {account.cons_no_src[-4:]}",
+            name=f"{account.display_name} {account.cons_no_src[-4:]}",
             manufacturer="国家电网",
             model="网上国网",
             serial_number=account.cons_no_src,

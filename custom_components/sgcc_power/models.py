@@ -18,6 +18,8 @@ from .crypto import HEX_64_RE, normalize_public_key
 
 DEFAULT_BASE_URL = "https://csc-service.sgcc.com.cn:28630"
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
+# 国网部分省份把 consName 填成内部 ID（数字/下划线长串），展示名需退回户号。
+_INTERNAL_NAME_RE = re.compile(r"^[0-9a-f_]{16,}$", re.IGNORECASE)
 
 
 def generate_app_guid() -> str:
@@ -163,6 +165,21 @@ class PowerAccount:
         if not self.cons_no_src:
             return ""
         return "*" * max(0, len(self.cons_no_src) - 4) + self.cons_no_src[-4:]
+
+    @property
+    def display_name(self) -> str:
+        """对外展示名：consName 是内部 ID 时（如 "99_xxx_6092"）退回户号尾缀。"""
+        name = self.name.strip()
+        if (
+            not name
+            or name == self.account_id
+            or name.startswith(self.account_id[:8])
+            or _INTERNAL_NAME_RE.fullmatch(name)
+        ):
+            return (
+                f"国家电网 {self.cons_no_src[-4:]}" if self.cons_no_src else "用电户号"
+            )
+        return name
 
     @property
     def cons_type(self) -> str:
