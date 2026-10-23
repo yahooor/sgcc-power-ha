@@ -2,7 +2,9 @@
   "domain": "sgcc_power",
   "name": "国家电网电力",
   "name_fa": "",
-  "codeowners": ["@yahooor"],
+  "codeowners": [
+    "@yahooor"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/yahooor/sgcc-power-ha",
   "integration_type": "service",
@@ -12,5 +14,5 @@
     "gmssl==3.2.2",
     "cryptography>=42.0.0"
   ],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
