@@ -1,0 +1,23 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install gmssl==3.2.2 "cryptography>=42.0.0" pytest ruff tzdata
+      - name: Lint
+        run: ruff check custom_components tests
+      - name: Test
+        run: pytest -q

@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Sign in with your State Grid online account (phone number and password). A one-time SMS device verification may be required.",
+        "data": {
+          "username": "Phone number",
+          "password": "State Grid password"
+        }
+      },
+      "device_verification": {
+        "description": "A 6-digit SMS code was sent to the phone ending in {phone_suffix}. Enter it to finish the new-device verification.",
+        "data": {
+          "verification_code": "SMS verification code"
+        }
+      },
+      "reauth_confirm": {
+        "description": "Automatic re-login failed: {auth_error}\nClick continue to retry with the saved password.",
+        "data": {
+          "continue": "Continue"
+        }
+      },
+      "reauth_credentials": {
+        "description": "Enter the new State Grid password.",
+        "data": {
+          "password": "State Grid password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the State Grid service ({error_message})",
+      "invalid_auth": "Invalid username or password ([{error_source} {error_code}] {error_message})",
+      "cannot_send_verification_code": "Failed to send the SMS code ({error_message})",
+      "invalid_verification_code": "The SMS code is wrong or expired ({error_message})",
+      "interactive_challenge_unsupported": "The server security check failed ({error_code}). Retry later, or complete verification in the official app and change the password first.",
+      "server_error": "Server error ([{error_source} {error_code}] {error_message})",
+      "local_error": "Failed to build the request locally: {error_message}",
+      "unknown": "Unknown error ({error_type}: {error_message})"
+    },
+    "abort": {
+      "wrong_account": "This account is configured under another entry; reauthenticate there.",
+      "already_configured": "This account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "history_months": "Recent months to query (1-3)",
+          "update_interval_hours": "Update interval (hours, 6-24)",
+          "compat_legacy_store": "Write the legacy state_grid.config compatibility file (for state_grid_info and similar helpers)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "latest_daily_usage": { "name": "Latest daily usage" },
+      "latest_daily_peak": { "name": "Latest daily peak usage" },
+      "latest_daily_valley": { "name": "Latest daily valley usage" },
+      "latest_daily_flat": { "name": "Latest daily flat usage" },
+      "latest_daily_tip": { "name": "Latest daily tip usage" },
+      "current_month_usage": { "name": "Current month usage" },
+      "current_month_peak": { "name": "Current month peak usage" },
+      "current_month_valley": { "name": "Current month valley usage" },
+      "current_month_flat": { "name": "Current month flat usage" },
+      "current_month_tip": { "name": "Current month tip usage" },
+      "latest_month_usage": { "name": "Last settled month usage" },
+      "latest_month_charge": { "name": "Last settled month charge" },
+      "current_year_usage": { "name": "Current year usage" },
+      "current_year_charge": { "name": "Current year charge" },
+      "account_balance": { "name": "Account balance" },
+      "amount_due": { "name": "Amount due" },
+      "latest_month_meter_reading": { "name": "Last month meter reading" }
+    }
+  }
+}
