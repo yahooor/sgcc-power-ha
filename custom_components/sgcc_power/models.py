@@ -172,6 +172,7 @@ class PowerAccount:
         name = self.name.strip()
         if (
             not name
+            or name == "用电户号"
             or name == self.account_id
             or name.startswith(self.account_id[:8])
             or _INTERNAL_NAME_RE.fullmatch(name)
