@@ -177,9 +177,7 @@ class PowerAccount:
             or name.startswith(self.account_id[:8])
             or _INTERNAL_NAME_RE.fullmatch(name)
         ):
-            return (
-                f"国家电网 {self.cons_no_src[-4:]}" if self.cons_no_src else "用电户号"
-            )
+            return "国家电网"
         return name
 
     @property
