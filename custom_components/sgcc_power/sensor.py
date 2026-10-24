@@ -150,6 +150,14 @@ SENSORS = (
         value_fn=lambda usage: usage.current_year_charge,
     ),
     SgccPowerSensorDescription(
+        key="latest_data_age_days",
+        translation_key="latest_data_age_days",
+        icon="mdi:clock-alert-outline",
+        value_fn=lambda usage: (
+            (usage.as_of - usage.latest.day).days if usage.latest else None
+        ),
+    ),
+    SgccPowerSensorDescription(
         key="account_balance",
         translation_key="account_balance",
         device_class=SensorDeviceClass.MONETARY,
@@ -291,6 +299,8 @@ class SgccPowerElectricitySensor(
             attributes["daily_history"] = [
                 reading.as_dict() for reading in self.usage.readings
             ]
+        if key == "latest_data_age_days" and self.usage.latest:
+            attributes["latest_date"] = self.usage.latest.day.isoformat()
         if key in _TOU_BY_KEY and self.usage.latest:
             attributes["latest_date"] = self.usage.latest.day.isoformat()
         if key in {"latest_month_usage", "latest_month_charge"}:

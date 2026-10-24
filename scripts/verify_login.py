@@ -54,9 +54,7 @@ async def main() -> int:
             print(f"[!] 需要新设备短信验证（{error.code}）。")
             code_key = await api.async_send_device_verification_sms()
             code = input("请输入收到的 6 位短信验证码: ").strip()
-            session = await api.async_login(
-                verification_code=code, code_key=code_key
-            )
+            session = await api.async_login(verification_code=code, code_key=code_key)
         except SgccPowerInteractiveChallengeRequired as error:
             print(f"[x] 服务端安全校验未通过（{error.code} {error.message}）")
             return 2
@@ -69,9 +67,7 @@ async def main() -> int:
 
         print(f"[ok] 登录成功 userId={session.user_id} 户号 {len(api.accounts)} 个")
         for account in api.accounts:
-            print(
-                f"  - {account.cons_no_src} {account.name} {account.address or ''}"
-            )
+            print(f"  - {account.cons_no_src} {account.name} {account.address or ''}")
 
         try:
             result = await api.async_query_history(months=args.months)

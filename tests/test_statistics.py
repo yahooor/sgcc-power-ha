@@ -255,3 +255,19 @@ def test_tou_statistic_ids() -> None:
         DailyReading.from_api({"day": "20261002", "dayElePq": 12.0, "thisPPq": 5.0}),
     )
     assert clean_series(readings, "peak") == [("2026-10-01", 4.0), ("2026-10-02", 5.0)]
+
+
+def test_latest_data_age_days_via_usage() -> None:
+    """看门狗数值源：AccountUsage.as_of - latest.day。"""
+    from custom_components.sgcc_power.models import AccountUsage
+
+    usage = AccountUsage(
+        account=PowerAccount.from_api(
+            {"powerUserNo": "04302332076092", "powerUserNo_dst": "4302332076092"}
+        ),
+        readings=(_r("20261023", 13.41),),
+        current_month_total=None,
+        as_of=date(2026, 10, 25),
+    )
+    assert usage.latest is not None
+    assert (usage.as_of - usage.latest.day).days == 2

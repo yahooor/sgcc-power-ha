@@ -1,7 +1,6 @@
 {
   "domain": "sgcc_power",
   "name": "国家电网电力",
-  "name_fa": "",
   "codeowners": [
     "@yahooor"
   ],
@@ -14,5 +13,5 @@
     "gmssl==3.2.2",
     "cryptography>=42.0.0"
   ],
-  "version": "1.10.0"
+  "version": "1.11.0"
 }

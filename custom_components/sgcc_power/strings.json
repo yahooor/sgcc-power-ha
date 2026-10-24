@@ -127,6 +127,9 @@
       },
       "history_owe": {
         "name": "历史欠费"
+      },
+      "latest_data_age_days": {
+        "name": "数据滞后天数"
       }
     }
   }

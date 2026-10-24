@@ -127,6 +127,9 @@
       },
       "history_owe": {
         "name": "History owe"
+      },
+      "latest_data_age_days": {
+        "name": "Data staleness (days)"
       }
     }
   },
