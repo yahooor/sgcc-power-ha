@@ -235,3 +235,23 @@ def test_estimated_month_cost_current_month_only() -> None:
         estimated_month_cost((_r("20260930", 10.0),), 0.588, today=date(2026, 10, 25))
         is None
     )
+
+
+def test_tou_statistic_ids() -> None:
+    from custom_components.sgcc_power.statistics import (
+        TOU_FIELDS,
+        clean_series,
+        tou_statistic_id,
+    )
+
+    assert set(TOU_FIELDS) == {"peak", "valley", "flat", "tip"}
+    assert (
+        tou_statistic_id("4302332076092", "peak")
+        == "sgcc_power:total_peak_4302332076092"
+    )
+    # clean_series 直接吃 TOU 字段
+    readings = (
+        DailyReading.from_api({"day": "20261001", "dayElePq": 10.0, "thisPPq": 4.0}),
+        DailyReading.from_api({"day": "20261002", "dayElePq": 12.0, "thisPPq": 5.0}),
+    )
+    assert clean_series(readings, "peak") == [("2026-10-01", 4.0), ("2026-10-02", 5.0)]

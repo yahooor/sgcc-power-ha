@@ -39,6 +39,14 @@ def energy_statistic_id(account_number: str) -> str:
     return f"sgcc_power:total_energy_{account_number}"
 
 
+# 分时（峰/谷/平/尖）统计后缀 -> DailyReading 字段
+TOU_FIELDS = {"peak": "峰", "valley": "谷", "flat": "平", "tip": "尖"}
+
+
+def tou_statistic_id(account_number: str, field: str) -> str:
+    return f"sgcc_power:total_{field}_{account_number}"
+
+
 def cost_statistic_id(account_number: str) -> str:
     return f"sgcc_power:total_cost_{account_number}"
 
@@ -359,6 +367,16 @@ class StatisticsImporter:
                     unit="kWh",
                     unit_class="energy",
                 )
+                for tou_field, tou_label in TOU_FIELDS.items():
+                    await self._async_import_series(
+                        clean_series(usage.readings, tou_field),
+                        account_id=usage.account.account_id,
+                        stat_key=f"total_{tou_field}",
+                        stat_id=tou_statistic_id(account_number, tou_field),
+                        name=f"国家电网 累计{tou_label}用电 {account_number[-4:]}",
+                        unit="kWh",
+                        unit_class="energy",
+                    )
                 if self.price <= 0:
                     if cost_reset:
                         self._async_remove_cost_statistics(account_number)
