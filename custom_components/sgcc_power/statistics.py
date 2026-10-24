@@ -223,6 +223,32 @@ def _tier_cost(
     return cost
 
 
+def estimated_month_cost(
+    readings: Iterable[Any],
+    price: float,
+    tiered: bool = False,
+    *,
+    today: date | None = None,
+) -> float | None:
+    """当月日电费合计（估算）：cost_series 限定当月。
+
+    上游不返回 estiAmt 的地区，用本函数按阶梯/固定单价估算本月电费。
+    price <= 0 或当月无数据返回 None。
+    """
+    if price <= 0:
+        return None
+    today = today or date.today()
+    month_prefix = today.strftime("%Y-%m")
+    values = [
+        value
+        for day, value in cost_series(readings, price, tiered=tiered)
+        if day.startswith(month_prefix)
+    ]
+    if not values:
+        return None
+    return round(sum(values), 2)
+
+
 def price_changed(stored: float | None, current: float) -> bool:
     """电价是否发生过变更（首次记录不算变更）。"""
     return stored is not None and stored != current

@@ -208,3 +208,30 @@ def test_cost_series_tiered_flag_routed() -> None:
     assert flat == [("2026-10-01", 58.8)]
     assert tiered == flat  # 100 度未过二档，两者一致
     assert cost_series(readings, 0.588, tiered=True) == [("2026-10-01", 58.8)]
+
+
+def test_estimated_month_cost_current_month_only() -> None:
+    from datetime import date
+
+    from custom_components.sgcc_power.statistics import estimated_month_cost
+
+    readings = (
+        _r("20260930", 10.0),  # 上月不计
+        _r("20261001", 250.0),  # 一天跨到二档：200×0.588 + 50×0.638
+        _r("20261020", 14.0),  # 此前已 250 → 全二档 0.638
+        _r("20261101", 5.0),  # 未来月不计
+    )
+    # 固定单价：264 × 0.588 = 155.232
+    assert estimated_month_cost(readings, 0.588, today=date(2026, 10, 25)) == 155.23
+    # 阶梯：(117.6 + 31.9) + 14×0.638 = 158.432
+    assert (
+        estimated_month_cost(readings, 0.588, tiered=True, today=date(2026, 10, 25))
+        == 158.43
+    )
+    # 关闭估算
+    assert estimated_month_cost(readings, 0.0) is None
+    # 无当月数据
+    assert (
+        estimated_month_cost((_r("20260930", 10.0),), 0.588, today=date(2026, 10, 25))
+        is None
+    )

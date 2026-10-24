@@ -24,9 +24,15 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import (
+    CONF_PRICE_PER_KWH,
+    CONF_TIERED_PRICING,
+    DEFAULT_PRICE_PER_KWH,
+    DOMAIN,
+)
 from .coordinator import SgccPowerDataCoordinator, SgccPowerRuntimeData
 from .models import AccountUsage
+from .statistics import estimated_month_cost
 
 KWH = UnitOfEnergy.KILO_WATT_HOUR
 CNY = "CNY"
@@ -238,7 +244,21 @@ class SgccPowerElectricitySensor(
 
     @property
     def native_value(self) -> float | None:
+        if self.entity_description.key == "current_month_cost":
+            return self._current_month_cost()
         return self.entity_description.value_fn(self.usage) if self.usage else None
+
+    def _current_month_cost(self) -> float | None:
+        """本月电费：优先官方 estiAmt，缺失时按配置口径估算。"""
+        usage = self.usage
+        if usage is None:
+            return None
+        if usage.billing_account and usage.billing_account.esti_amt is not None:
+            return usage.billing_account.esti_amt
+        options = self.coordinator.entry.options
+        price = float(options.get(CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH))
+        tiered = bool(options.get(CONF_TIERED_PRICING, False))
+        return estimated_month_cost(usage.readings, price, tiered)
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -283,6 +303,18 @@ class SgccPowerElectricitySensor(
             attributes["monthly_bill_history"] = [
                 bill.as_dict() for bill in self.usage.monthly_bills
             ]
+        if key == "current_month_cost":
+            if self.usage and self.usage.billing_account:
+                if self.usage.billing_account.esti_amt is not None:
+                    attributes["口径"] = "官方（上游 estiAmt）"
+                else:
+                    options = self.coordinator.entry.options
+                    tiered = bool(options.get(CONF_TIERED_PRICING, False))
+                    attributes["口径"] = (
+                        "估算（阶梯电价）" if tiered else "估算（固定单价）"
+                    )
+            else:
+                attributes["口径"] = None
         if key in {"current_year_usage", "current_year_charge"}:
             attributes["billing_year"] = self.usage.as_of.year
         if key in {"account_balance", "amount_due"}:
