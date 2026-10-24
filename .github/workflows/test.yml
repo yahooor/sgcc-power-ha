@@ -46,7 +46,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography>=42.0.0"
-          python -c "import aiohttp; print('aiohttp', aiohttp.__version__)"
+          # 老版 HA 的 aiodns 依赖解析会装到过老的 pycares，与其新 aiodns 不兼容；钉住修复
+          pip install "pycares>=4.9" "aiodns>=3.5"
+          python -c "import aiohttp, aiodns; print('aiohttp', aiohttp.__version__, 'aiodns', aiodns.__version__)"
       - name: Import smoke (catches removed-API breakage)
         run: python scripts/ha_import_smoke.py
 
