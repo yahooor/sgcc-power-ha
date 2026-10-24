@@ -11,10 +11,14 @@ CONF_SYNTHETIC_DEVICE = "synthetic_device"
 CONF_HISTORY_MONTHS = "history_months"
 CONF_UPDATE_INTERVAL_HOURS = "update_interval_hours"
 CONF_COMPAT_LEGACY_STORE = "compat_legacy_store"
+CONF_PRICE_PER_KWH = "price_per_kwh"
 
 DEFAULT_HISTORY_MONTHS = 2
 DEFAULT_UPDATE_INTERVAL_HOURS = 12
 DEFAULT_UPDATE_INTERVAL = timedelta(hours=DEFAULT_UPDATE_INTERVAL_HOURS)
+# 湖南省居民生活用电第一档基准价（湖南省发改委公示，2024-02 起执行）。
+# 上游不提供日电费时，成本统计按 用量 × 此单价 计算；0 表示不生成成本统计。
+DEFAULT_PRICE_PER_KWH = 0.588
 
 # 兼容层：旧版 state_grid 集成与 state_grid_info 辅助集成读取的存储文件。
 LEGACY_STORAGE_KEY = "state_grid.config"

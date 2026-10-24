@@ -116,13 +116,37 @@ def build_daily_stats(
     return records, new_last_day, new_total
 
 
+def cost_series(readings: Iterable[Any], price: float) -> list[tuple[str, float]]:
+    """构造日电费序列：优先上游日电费（charge），缺失时按 用量 × 单价 计算。
+
+    price <= 0 表示不生成成本统计，返回空列表。
+    """
+    if price <= 0:
+        return []
+    series: list[tuple[str, float]] = []
+    for reading in readings:
+        day = getattr(reading, "day", None)
+        if day is None:
+            continue
+        charge = getattr(reading, "charge", None)
+        if charge is not None and charge > 0:
+            series.append((day.isoformat(), float(charge)))
+            continue
+        usage = getattr(reading, "usage", None)
+        if usage is not None and usage > 0:
+            series.append((day.isoformat(), round(float(usage) * price, 4)))
+    series.sort(key=lambda item: item[0])
+    return series
+
+
 class StatisticsImporter:
     """持久化游标并把刷新结果回填到 HA 长期统计。"""
 
     STORE_KEY = "sgcc_power.statistics"
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, price: float = 0.0) -> None:
         self._hass = hass
+        self.price = price
         self._cursors: dict[str, dict[str, Any]] = {}
 
     async def async_load(self) -> None:
@@ -162,20 +186,20 @@ class StatisticsImporter:
                 continue
             try:
                 await self._async_import_series(
-                    usage,
+                    clean_series(usage.readings, "usage"),
+                    account_id=usage.account.account_id,
                     stat_key=_STAT_KEY_ENERGY,
                     stat_id=energy_statistic_id(account_number),
                     name=f"国家电网 累计用电 {account_number[-4:]}",
-                    field="usage",
                     unit="kWh",
                     unit_class="energy",
                 )
                 await self._async_import_series(
-                    usage,
+                    cost_series(usage.readings, self.price),
+                    account_id=usage.account.account_id,
                     stat_key=_STAT_KEY_COST,
                     stat_id=cost_statistic_id(account_number),
                     name=f"国家电网 累计电费 {account_number[-4:]}",
-                    field="charge",
                     unit="CNY",
                     unit_class=None,
                 )
@@ -187,12 +211,12 @@ class StatisticsImporter:
 
     async def _async_import_series(
         self,
-        usage: AccountUsage,
+        series: list[tuple[str, float]],
         *,
+        account_id: str,
         stat_key: str,
         stat_id: str,
         name: str,
-        field: str,
         unit: str,
         unit_class: str | None,
     ) -> None:
@@ -208,12 +232,10 @@ class StatisticsImporter:
         )
         from homeassistant.util import dt as dt_util
 
-        account_id = usage.account.account_id
         cursor = self._cursor(account_id, stat_key)
         last_day = cursor["last_imported_day"]
         total = cursor["last_imported_total"]
 
-        series = clean_series(usage.readings, field)
         outdated = baseline_outdated(
             series, last_imported_day=last_day, expected_total=total
         )

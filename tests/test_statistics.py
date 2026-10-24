@@ -92,3 +92,20 @@ def test_cost_series_empty_when_charge_missing() -> None:
         (_r("20261001", 5.0, 2.5), _r("20261002", 6.0, 3.1)), "charge"
     ) == [("2026-10-01", 2.5), ("2026-10-02", 3.1)]
     assert _account().account_id
+
+
+def test_cost_series_prefers_upstream_and_falls_back_to_price() -> None:
+    from custom_components.sgcc_power.statistics import cost_series
+
+    readings = (
+        _r("20261001", 5.0, 2.9),  # 有上游日电费 → 直接用
+        _r("20261002", 6.0, None),  # 无日电费 → 6.0 × 0.588 = 3.528
+        _r("20261003", 0.0, None),  # 零用量跳过
+        _r("20261004", None, None),  # 缺值跳过
+    )
+    assert cost_series(readings, 0.588) == [
+        ("2026-10-01", 2.9),
+        ("2026-10-02", 3.528),
+    ]
+    # price=0 关闭成本统计
+    assert cost_series(readings, 0.0) == []

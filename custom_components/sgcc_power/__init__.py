@@ -13,7 +13,9 @@ from .api import SgccPowerAppApi
 from .compat import LegacyStoreWriter
 from .const import (
     CONF_LOGIN_SESSION,
+    CONF_PRICE_PER_KWH,
     CONF_SYNTHETIC_DEVICE,
+    DEFAULT_PRICE_PER_KWH,
     DOMAIN,
     PLATFORMS,
 )
@@ -53,7 +55,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         login_session=LoginSession.from_dict(entry.data.get(CONF_LOGIN_SESSION)),
         profile_provider=async_profile_provider,
     )
-    statistics_importer = StatisticsImporter(hass)
+    statistics_importer = StatisticsImporter(
+        hass,
+        price=float(entry.options.get(CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH)),
+    )
     await statistics_importer.async_load()
     coordinator = SgccPowerDataCoordinator(
         hass,

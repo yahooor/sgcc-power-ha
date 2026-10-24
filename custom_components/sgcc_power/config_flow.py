@@ -29,9 +29,11 @@ from .const import (
     CONF_COMPAT_LEGACY_STORE,
     CONF_HISTORY_MONTHS,
     CONF_LOGIN_SESSION,
+    CONF_PRICE_PER_KWH,
     CONF_SYNTHETIC_DEVICE,
     CONF_UPDATE_INTERVAL_HOURS,
     DEFAULT_HISTORY_MONTHS,
+    DEFAULT_PRICE_PER_KWH,
     DEFAULT_UPDATE_INTERVAL_HOURS,
     DOMAIN,
 )
@@ -556,6 +558,14 @@ class SgccPowerOptionsFlow(config_entries.OptionsFlow):
                         CONF_COMPAT_LEGACY_STORE,
                         default=self.entry.options.get(CONF_COMPAT_LEGACY_STORE, True),
                     ): bool,
+                    vol.Optional(
+                        CONF_PRICE_PER_KWH,
+                        description={
+                            "suggested_value": self.entry.options.get(
+                                CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH
+                            )
+                        },
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=3)),
                 }
             ),
         )
