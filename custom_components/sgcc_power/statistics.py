@@ -116,27 +116,111 @@ def build_daily_stats(
     return records, new_last_day, new_total
 
 
-def cost_series(readings: Iterable[Any], price: float) -> list[tuple[str, float]]:
-    """构造日电费序列：优先上游日电费（charge），缺失时按 用量 × 单价 计算。
+def cost_series(
+    readings: Iterable[Any], price: float, *, tiered: bool = False
+) -> list[tuple[str, float]]:
+    """构造日电费序列：优先上游日电费（charge），缺失时估算。
 
+    固定单价模式：用量 × price。阶梯模式（湖南居民分时外季节阶梯）：
+    按自然月累计电量分段——春秋月（3/4/5/9/10/11）二档 200、三档 350 kWh，
+    其余月份二档 200、三档 450；档位加价 +0.05 / +0.30 元（基于 base=price）。
     price <= 0 表示不生成成本统计，返回空列表。
     """
     if price <= 0:
         return []
-    series: list[tuple[str, float]] = []
+    if not tiered:
+        series = []
+        for reading in readings:
+            day = getattr(reading, "day", None)
+            if day is None:
+                continue
+            charge = getattr(reading, "charge", None)
+            if charge is not None and charge > 0:
+                series.append((day.isoformat(), float(charge)))
+                continue
+            usage = getattr(reading, "usage", None)
+            if usage is not None and usage > 0:
+                series.append((day.isoformat(), round(float(usage) * price, 4)))
+        series.sort(key=lambda item: item[0])
+        return series
+    return tiered_cost_series(readings, price)
+
+
+_SPRING_AUTUMN_MONTHS = {3, 4, 5, 9, 10, 11}
+_TIER2_USAGE = 200.0
+_TIER3_SPRING_AUTUMN = 350.0
+_TIER3_WINTER_SUMMER = 450.0
+_TIER2_ADD = 0.05
+_TIER3_ADD = 0.30
+
+
+def tiered_cost_series(
+    readings: Iterable[Any], base_price: float
+) -> list[tuple[str, float]]:
+    """湖南居民季节阶梯：按自然月累计电量分段计价（纯函数）。"""
+    items: list[tuple[str, float]] = []
     for reading in readings:
         day = getattr(reading, "day", None)
         if day is None:
             continue
         charge = getattr(reading, "charge", None)
-        if charge is not None and charge > 0:
-            series.append((day.isoformat(), float(charge)))
-            continue
         usage = getattr(reading, "usage", None)
-        if usage is not None and usage > 0:
-            series.append((day.isoformat(), round(float(usage) * price, 4)))
-    series.sort(key=lambda item: item[0])
+        value = usage if usage is not None and usage > 0 else None
+        if value is None:
+            continue
+        if charge is not None and charge > 0:
+            items.append((day.isoformat(), float(charge), float(value), True))
+        else:
+            items.append((day.isoformat(), float(value), float(value), False))
+    items.sort(key=lambda item: item[0])
+
+    month_accumulated: dict[str, float] = {}
+    series: list[tuple[str, float]] = []
+    for day_iso, primary, usage_value, is_real_charge in items:
+        month_key = day_iso[:7]
+        prior = month_accumulated.get(month_key, 0.0)
+        if is_real_charge:
+            cost = primary
+        else:
+            tier3_start = (
+                _TIER3_SPRING_AUTUMN
+                if int(month_key[5:7]) in _SPRING_AUTUMN_MONTHS
+                else _TIER3_WINTER_SUMMER
+            )
+            cost = _tier_cost(usage_value, prior, _TIER2_USAGE, tier3_start, base_price)
+        month_accumulated[month_key] = round(prior + usage_value, 4)
+        series.append((day_iso, round(cost, 4)))
     return series
+
+
+def _tier_cost(
+    day_usage: float,
+    prior_usage: float,
+    tier2_start: float,
+    tier3_start: float,
+    base_price: float,
+) -> float:
+    """把一天用量按当月已累计电量切进三档，返回电费。"""
+    remaining = day_usage
+    cost = 0.0
+    boundaries = (
+        (0.0, tier2_start, base_price),
+        (tier2_start, tier3_start, base_price + _TIER2_ADD),
+        (tier3_start, float("inf"), base_price + _TIER3_ADD),
+    )
+    for start, end, unit_price in boundaries:
+        if remaining <= 0:
+            break
+        # 本档可用额度：从 max(prior, start) 到 end
+        available = max(0.0, end - max(prior_usage, start))
+        segment = min(remaining, available)
+        if segment > 0:
+            cost += segment * unit_price
+            remaining -= segment
+    # prior 已超最高档或边界容差兜底
+    if remaining > 0:
+        cost += remaining * (base_price + _TIER3_ADD)
+    return cost
 
 
 def price_changed(stored: float | None, current: float) -> bool:
@@ -149,12 +233,17 @@ class StatisticsImporter:
 
     STORE_KEY = "sgcc_power.statistics"
     _PRICE_KEY = "_price"
+    _TIERED_KEY = "_tiered"
 
-    def __init__(self, hass: HomeAssistant, price: float = 0.0) -> None:
+    def __init__(
+        self, hass: HomeAssistant, price: float = 0.0, *, tiered: bool = False
+    ) -> None:
         self._hass = hass
         self.price = price
+        self.tiered = tiered
         self._cursors: dict[str, dict[str, Any]] = {}
         self._stored_price: float | None = None
+        self._stored_tiered: bool | None = None
 
     async def async_load(self) -> None:
         from homeassistant.helpers.storage import Store
@@ -165,9 +254,12 @@ class StatisticsImporter:
             self._cursors = dict(data)
             raw_price = data.get(self._PRICE_KEY)
             self._stored_price = float(raw_price) if raw_price is not None else None
+            raw_tiered = data.get(self._TIERED_KEY)
+            self._stored_tiered = bool(raw_tiered) if raw_tiered is not None else None
         else:
             self._cursors = {}
             self._stored_price = None
+            self._stored_tiered = None
 
     async def _async_save_cursors(self) -> None:
         from homeassistant.helpers.storage import Store
@@ -210,15 +302,22 @@ class StatisticsImporter:
     async def async_import(self, usages: dict[str, AccountUsage]) -> None:
         """刷新成功后调用；单户号失败不影响其他户号与主数据链路。"""
         changed = price_changed(self._stored_price, self.price)
-        if changed:
+        tiered_toggled = (
+            self._stored_tiered is not None and self._stored_tiered != self.tiered
+        )
+        if changed or tiered_toggled:
             self._reset_cost_cursors()
             _LOGGER.info(
-                "电价已变更（%.4f → %.4f），成本统计将全量重算",
+                "成本口径已变更（电价 %.4f→%.4f，阶梯 %s→%s），成本统计将全量重算",
                 self._stored_price or 0.0,
                 self.price,
+                self._stored_tiered,
+                self.tiered,
             )
         self._cursors[self._PRICE_KEY] = self.price
+        self._cursors[self._TIERED_KEY] = self.tiered
         self._stored_price = self.price
+        self._stored_tiered = self.tiered
         for usage in usages.values():
             account_number = usage.account.cons_no_src or usage.account.cons_no
             if not account_number:
@@ -242,7 +341,7 @@ class StatisticsImporter:
                         )
                 else:
                     await self._async_import_series(
-                        cost_series(usage.readings, self.price),
+                        cost_series(usage.readings, self.price, tiered=self.tiered),
                         account_id=usage.account.account_id,
                         stat_key=_STAT_KEY_COST,
                         stat_id=cost_statistic_id(account_number),

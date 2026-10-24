@@ -17,6 +17,7 @@ from .const import (
     CONF_LOGIN_SESSION,
     CONF_PRICE_PER_KWH,
     CONF_SYNTHETIC_DEVICE,
+    CONF_TIERED_PRICING,
     DEFAULT_PRICE_PER_KWH,
     DOMAIN,
     PLATFORMS,
@@ -81,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     statistics_importer = StatisticsImporter(
         hass,
         price=float(entry.options.get(CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH)),
+        tiered=bool(entry.options.get(CONF_TIERED_PRICING, False)),
     )
     await statistics_importer.async_load()
     coordinator = SgccPowerDataCoordinator(

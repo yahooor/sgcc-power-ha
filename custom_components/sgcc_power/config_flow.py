@@ -31,6 +31,7 @@ from .const import (
     CONF_LOGIN_SESSION,
     CONF_PRICE_PER_KWH,
     CONF_SYNTHETIC_DEVICE,
+    CONF_TIERED_PRICING,
     CONF_UPDATE_INTERVAL_HOURS,
     DEFAULT_HISTORY_MONTHS,
     DEFAULT_PRICE_PER_KWH,
@@ -619,6 +620,10 @@ class SgccPowerOptionsFlow(config_entries.OptionsFlow):
                     )
                 },
             ): vol.All(vol.Coerce(float), vol.Range(min=0, max=3)),
+            vol.Required(
+                CONF_TIERED_PRICING,
+                default=self.entry.options.get(CONF_TIERED_PRICING, False),
+            ): bool,
             vol.Optional(CONF_NEW_PASSWORD, description={"suggested_value": ""}): str,
         }
         return self.async_show_form(

@@ -12,6 +12,7 @@ CONF_HISTORY_MONTHS = "history_months"
 CONF_UPDATE_INTERVAL_HOURS = "update_interval_hours"
 CONF_COMPAT_LEGACY_STORE = "compat_legacy_store"
 CONF_PRICE_PER_KWH = "price_per_kwh"
+CONF_TIERED_PRICING = "tiered_pricing"
 
 DEFAULT_HISTORY_MONTHS = 2
 DEFAULT_UPDATE_INTERVAL_HOURS = 12

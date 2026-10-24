@@ -152,3 +152,59 @@ def test_reset_cost_cursors_only_touches_cost() -> None:
     assert "total_cost" not in imp._cursors["acct1"]
     assert "total_cost" not in imp._cursors["acct2"]
     assert imp._cursors["_price"] == 0.588  # 顶层价格键不受影响
+
+
+def _r_oct(day, usage):
+    return _r(f"202610{day:02d}", usage)
+
+
+def test_tiered_series_matches_official_esti_amt() -> None:
+    """校准：2026-10（春秋月）官方 estiAmt=191.61，用量 315.71 kWh。
+
+    阶梯口径 200×0.588 + 115.71×0.638 = 191.42，与官方差 <0.2%（约一天边界取整）。
+    """
+    from custom_components.sgcc_power.statistics import tiered_cost_series
+
+    readings = [_r_oct(d, 315.71 / 22) for d in range(1, 23)]
+    series = tiered_cost_series(readings, 0.588)
+    total = round(sum(v for _, v in series), 2)
+    assert total == 191.42
+    assert abs(total - 191.61) / 191.61 < 0.005  # 与官方值偏差 <0.5%
+
+
+def test_tiered_boundaries_and_month_reset() -> None:
+    from custom_components.sgcc_power.statistics import tiered_cost_series
+
+    readings = (
+        # 10 月（春秋：二档 200/三档 350）：第一天 250 度 → 200×0.588 + 50×0.638
+        _r_oct(1, 250.0),
+        # 第二天 150 度：此前已 250 → 100×0.638 + 50×0.888
+        _r_oct(2, 150.0),
+        # 11 月也是春秋月，累计清零：100 度全一档
+        _r("20261101", 100.0),
+        # 7 月（冬夏：三档 450）：第一天 460 度 → 200×0.588 + 250×0.638 + 10×0.888
+        _r("20260701", 460.0),
+    )
+    series = dict(tiered_cost_series(readings, 0.588))
+    assert series["2026-10-01"] == round(200 * 0.588 + 50 * 0.638, 4)
+    assert series["2026-10-02"] == round(100 * 0.638 + 50 * 0.888, 4)
+    assert series["2026-11-01"] == round(100 * 0.588, 4)
+    assert series["2026-07-01"] == round(200 * 0.588 + 250 * 0.638 + 10 * 0.888, 4)
+
+
+def test_tiered_prefers_real_charge() -> None:
+    from custom_components.sgcc_power.statistics import tiered_cost_series
+
+    readings = (_r("20261001", 100.0, 55.5),)  # 上游日电费 55.5 优先
+    assert tiered_cost_series(readings, 0.588) == [("2026-10-01", 55.5)]
+
+
+def test_cost_series_tiered_flag_routed() -> None:
+    from custom_components.sgcc_power.statistics import cost_series
+
+    readings = (_r("20261001", 100.0),)
+    flat = cost_series(readings, 0.588)
+    tiered = cost_series(readings, 0.588, tiered=True)
+    assert flat == [("2026-10-01", 58.8)]
+    assert tiered == flat  # 100 度未过二档，两者一致
+    assert cost_series(readings, 0.588, tiered=True) == [("2026-10-01", 58.8)]

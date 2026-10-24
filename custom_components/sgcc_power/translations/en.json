@@ -50,7 +50,8 @@
           "update_interval_hours": "Update interval (hours, 6-24)",
           "compat_legacy_store": "Write the legacy state_grid.config compatibility file (for state_grid_info and similar helpers)",
           "price_per_kwh": "Price (CNY/kWh, used for cost statistics; 0 = disable)",
-          "new_password": "New password (fill in to change; verified via App login before saving)"
+          "new_password": "New password (fill in to change; verified via App login before saving)",
+          "tiered_pricing": "Tiered pricing estimate (Hunan residential seasonal tiers)"
         }
       },
       "device_verification": {

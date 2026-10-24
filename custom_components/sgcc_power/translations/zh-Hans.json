@@ -50,7 +50,8 @@
           "update_interval_hours": "刷新间隔（小时，6-24）",
           "compat_legacy_store": "写入旧版 state_grid.config 兼容文件（供 state_grid_info 等辅助集成读取）",
           "price_per_kwh": "电价（元/kWh，用于估算成本统计；0=不生成）",
-          "new_password": "新密码（修改网上国网密码时填写，留空不修改；填写后先验证一次）"
+          "new_password": "新密码（修改网上国网密码时填写，留空不修改；填写后先验证一次）",
+          "tiered_pricing": "阶梯电价估算（湖南居民季节阶梯：春秋月 200/350 kWh、冬夏月 200/450，二/三档 +0.05/+0.30 元）"
         }
       },
       "device_verification": {
