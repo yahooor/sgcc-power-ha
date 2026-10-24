@@ -31,14 +31,13 @@ MODULES = (
 
 
 def main() -> int:
-    import homeassistant
+    from importlib.metadata import version
 
+    hass_version = version("homeassistant")
     for module_name in MODULES:
         importlib.import_module(module_name)
         print("OK", module_name)
-    print(
-        f"ALL {len(MODULES)} MODULES IMPORT UNDER homeassistant {homeassistant.__version__}"
-    )
+    print(f"ALL {len(MODULES)} MODULES IMPORT UNDER homeassistant {hass_version}")
     return 0
 
 
