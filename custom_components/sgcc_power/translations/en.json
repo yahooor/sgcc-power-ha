@@ -49,9 +49,23 @@
           "history_months": "Recent months to query (1-3)",
           "update_interval_hours": "Update interval (hours, 6-24)",
           "compat_legacy_store": "Write the legacy state_grid.config compatibility file (for state_grid_info and similar helpers)",
-          "price_per_kwh": "Price (CNY/kWh, used for cost statistics; 0 = disable)"
+          "price_per_kwh": "Price (CNY/kWh, used for cost statistics; 0 = disable)",
+          "new_password": "New password (fill in to change; verified via App login before saving)"
+        }
+      },
+      "device_verification": {
+        "description": "A 6-digit SMS code was sent to the phone ending in {phone_suffix}. Enter it to finish the new-device verification.",
+        "data": {
+          "verification_code": "SMS verification code"
         }
       }
+    },
+    "error": {
+      "not_loaded": "Integration not loaded; cannot verify the new password",
+      "invalid_auth": "New password verification failed (old password kept)",
+      "cannot_connect": "Cannot reach the State Grid service to verify the new password",
+      "cannot_send_verification_code": "Failed to send the SMS code",
+      "invalid_verification_code": "The SMS code is wrong or expired"
     }
   },
   "entity": {
@@ -106,6 +120,12 @@
       },
       "latest_month_meter_reading": {
         "name": "Last month meter reading"
+      },
+      "current_month_cost": {
+        "name": "Current month cost"
+      },
+      "history_owe": {
+        "name": "History owe"
       }
     }
   }

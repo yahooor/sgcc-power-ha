@@ -528,44 +528,130 @@ class SgccPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
+CONF_NEW_PASSWORD = "new_password"
+
+
 class SgccPowerOptionsFlow(config_entries.OptionsFlow):
-    """Configure polling depth, interval and the legacy compatibility writer."""
+    """Configure polling depth, interval, price, compatibility and password."""
 
     def __init__(self, entry: config_entries.ConfigEntry) -> None:
         self.entry = entry
+        self._code_key = ""
+        self._pending_password = ""
+        self._pending_options: dict[str, Any] = {}
+
+    def _runtime_api(self):
+        runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
+        return runtime.api if runtime is not None else None
+
+    async def _async_apply_new_password(self, password: str) -> None:
+        """新密码已通过 App 通道验证，连同新会话一起写入条目数据。"""
+        api = self._runtime_api()
+        data = dict(self.entry.data)
+        data[CONF_PASSWORD] = password
+        if api is not None and api.login_session is not None:
+            data[CONF_LOGIN_SESSION] = api.login_session.as_dict()
+        self.hass.config_entries.async_update_entry(self.entry, data=data)
 
     async def async_step_init(self, user_input=None):
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            new_password = str(user_input.get(CONF_NEW_PASSWORD) or "").strip()
+            options = {k: v for k, v in user_input.items() if k != CONF_NEW_PASSWORD}
+            if not new_password:
+                return self.async_create_entry(title="", data=options)
+            api = self._runtime_api()
+            if api is None:
+                errors[CONF_NEW_PASSWORD] = "not_loaded"
+            else:
+                old_password = api.password
+                api.password = new_password
+                try:
+                    await api.async_login()
+                except SgccPowerDeviceVerificationRequired:
+                    try:
+                        self._code_key = await api.async_send_device_verification_sms()
+                    except (SgccPowerApiError, SgccPowerNetworkError):
+                        api.password = old_password
+                        errors[CONF_NEW_PASSWORD] = "cannot_send_verification_code"
+                    else:
+                        self._pending_password = new_password
+                        self._pending_options = options
+                        return await self.async_step_device_verification()
+                except (SgccPowerAuthenticationError, SgccPowerApiError) as error:
+                    api.password = old_password
+                    _LOGGER.warning(
+                        "新密码验证失败: source=%s code=%s message=%s",
+                        getattr(error, "source", ""),
+                        getattr(error, "code", ""),
+                        getattr(error, "message", ""),
+                    )
+                    errors[CONF_NEW_PASSWORD] = "invalid_auth"
+                except (SgccPowerNetworkError, ValueError):
+                    api.password = old_password
+                    errors[CONF_NEW_PASSWORD] = "cannot_connect"
+                else:
+                    await self._async_apply_new_password(new_password)
+                    return self.async_create_entry(title="", data=options)
+        schema = {
+            vol.Required(
+                CONF_HISTORY_MONTHS,
+                default=self.entry.options.get(
+                    CONF_HISTORY_MONTHS, DEFAULT_HISTORY_MONTHS
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3)),
+            vol.Required(
+                CONF_UPDATE_INTERVAL_HOURS,
+                default=self.entry.options.get(
+                    CONF_UPDATE_INTERVAL_HOURS,
+                    DEFAULT_UPDATE_INTERVAL_HOURS,
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=6, max=24)),
+            vol.Required(
+                CONF_COMPAT_LEGACY_STORE,
+                default=self.entry.options.get(CONF_COMPAT_LEGACY_STORE, True),
+            ): bool,
+            vol.Optional(
+                CONF_PRICE_PER_KWH,
+                description={
+                    "suggested_value": self.entry.options.get(
+                        CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH
+                    )
+                },
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=3)),
+            vol.Optional(CONF_NEW_PASSWORD, description={"suggested_value": ""}): str,
+        }
         return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_HISTORY_MONTHS,
-                        default=self.entry.options.get(
-                            CONF_HISTORY_MONTHS, DEFAULT_HISTORY_MONTHS
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3)),
-                    vol.Required(
-                        CONF_UPDATE_INTERVAL_HOURS,
-                        default=self.entry.options.get(
-                            CONF_UPDATE_INTERVAL_HOURS,
-                            DEFAULT_UPDATE_INTERVAL_HOURS,
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=6, max=24)),
-                    vol.Required(
-                        CONF_COMPAT_LEGACY_STORE,
-                        default=self.entry.options.get(CONF_COMPAT_LEGACY_STORE, True),
-                    ): bool,
-                    vol.Optional(
-                        CONF_PRICE_PER_KWH,
-                        description={
-                            "suggested_value": self.entry.options.get(
-                                CONF_PRICE_PER_KWH, DEFAULT_PRICE_PER_KWH
-                            )
-                        },
-                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=3)),
-                }
-            ),
+            step_id="init", data_schema=vol.Schema(schema), errors=errors
+        )
+
+    async def async_step_device_verification(self, user_input=None):
+        """改密码触发新设备验证时输入短信验证码。"""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            api = self._runtime_api()
+            assert api is not None
+            try:
+                await api.async_login(
+                    verification_code=user_input[CONF_VERIFICATION_CODE],
+                    code_key=self._code_key,
+                )
+            except (SgccPowerAuthenticationError, SgccPowerApiError):
+                errors["base"] = "invalid_verification_code"
+            except (SgccPowerNetworkError, ValueError):
+                errors["base"] = "cannot_connect"
+            else:
+                self._code_key = ""
+                await self._async_apply_new_password(self._pending_password)
+                options = self._pending_options
+                self._pending_options = {}
+                self._pending_password = ""
+                return self.async_create_entry(title="", data=options)
+        return self.async_show_form(
+            step_id="device_verification",
+            data_schema=vol.Schema({vol.Required(CONF_VERIFICATION_CODE): str}),
+            errors=errors,
+            description_placeholders={
+                "phone_suffix": str(self.entry.data.get(CONF_USERNAME, ""))[-4:]
+            },
         )

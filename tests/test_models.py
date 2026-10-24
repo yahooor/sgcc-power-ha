@@ -102,3 +102,30 @@ def test_month_sum_over_tou_fields() -> None:
     assert usage.month_sum("peak") == 9.42
     assert usage.month_sum("valley") == 7.75
     assert usage.latest.day == date(2026, 10, 20)
+
+
+def test_account_balance_parses_esti_amt() -> None:
+    """本月已产生电费（estiAmt）——tiejiang 实测恒等式 sumMoney = prepayBal - estiAmt。"""
+    balance = AccountBalance.from_api(
+        {
+            "consType": "1",
+            "sumMoney": "111.45",
+            "prepayBal": "297.05",
+            "estiAmt": "185.60",
+            "historyOwe": "0",
+        }
+    )
+    assert balance.esti_amt == 185.60
+    assert balance.history_owe == 0.0
+    # 上游恒等式校验（容差浮点）
+    assert (
+        abs(
+            (balance.prepay_balance or 0)
+            - (balance.sum_money or 0)
+            - (balance.esti_amt or 0)
+        )
+        < 0.01
+    )
+    # 不返回 estiAmt 的地区
+    missing = AccountBalance.from_api({"consType": "1", "sumMoney": "10"})
+    assert missing.esti_amt is None

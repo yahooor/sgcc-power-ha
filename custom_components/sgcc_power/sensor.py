@@ -162,6 +162,24 @@ SENSORS = (
         ),
     ),
     SgccPowerSensorDescription(
+        key="current_month_cost",
+        translation_key="current_month_cost",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=CNY,
+        value_fn=lambda usage: (
+            usage.billing_account.esti_amt if usage.billing_account else None
+        ),
+    ),
+    SgccPowerSensorDescription(
+        key="history_owe",
+        translation_key="history_owe",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=CNY,
+        value_fn=lambda usage: (
+            usage.billing_account.history_owe if usage.billing_account else None
+        ),
+    ),
+    SgccPowerSensorDescription(
         key="latest_month_meter_reading",
         translation_key="latest_month_meter_reading",
         value_fn=lambda usage: (

@@ -359,6 +359,9 @@ class AccountBalance:
     history_owe: float | None
     penalty: float | None
     date: str
+    # 本月已产生电费（官方口径，上游恒等式 sumMoney = prepayBal - estiAmt）；
+    # 部分地区不返回。
+    esti_amt: float | None = None
 
     @classmethod
     def from_api(cls, value: Mapping[str, Any]) -> AccountBalance:
@@ -370,6 +373,7 @@ class AccountBalance:
             history_owe=_number(value.get("historyOwe")),
             penalty=_number(value.get("penalty")),
             date=str(value.get("date") or value.get("amtTime") or ""),
+            esti_amt=_number(value.get("estiAmt")),
         )
 
     @property
