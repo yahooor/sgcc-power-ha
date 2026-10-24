@@ -139,22 +139,35 @@ def cost_series(readings: Iterable[Any], price: float) -> list[tuple[str, float]
     return series
 
 
+def price_changed(stored: float | None, current: float) -> bool:
+    """电价是否发生过变更（首次记录不算变更）。"""
+    return stored is not None and stored != current
+
+
 class StatisticsImporter:
     """持久化游标并把刷新结果回填到 HA 长期统计。"""
 
     STORE_KEY = "sgcc_power.statistics"
+    _PRICE_KEY = "_price"
 
     def __init__(self, hass: HomeAssistant, price: float = 0.0) -> None:
         self._hass = hass
         self.price = price
         self._cursors: dict[str, dict[str, Any]] = {}
+        self._stored_price: float | None = None
 
     async def async_load(self) -> None:
         from homeassistant.helpers.storage import Store
 
         store = Store(self._hass, 1, self.STORE_KEY)
         data = await store.async_load()
-        self._cursors = dict(data) if isinstance(data, dict) else {}
+        if isinstance(data, dict):
+            self._cursors = dict(data)
+            raw_price = data.get(self._PRICE_KEY)
+            self._stored_price = float(raw_price) if raw_price is not None else None
+        else:
+            self._cursors = {}
+            self._stored_price = None
 
     async def _async_save_cursors(self) -> None:
         from homeassistant.helpers.storage import Store
@@ -178,8 +191,34 @@ class StatisticsImporter:
             "last_imported_total": total,
         }
 
+    def _reset_cost_cursors(self) -> None:
+        """电价变更后清掉成本游标，让下一次导入全量重算。"""
+        for value in self._cursors.values():
+            if isinstance(value, dict):
+                value.pop(_STAT_KEY_COST, None)
+
+    def _async_remove_cost_statistics(self, account_number: str) -> None:
+        """电价改为 0（关闭成本）时，把已导入的成本统计一并移除。"""
+        from homeassistant.components.recorder.statistics import (
+            async_remove_external_statistics,
+        )
+
+        async_remove_external_statistics(
+            self._hass, "sgcc_power", cost_statistic_id(account_number)
+        )
+
     async def async_import(self, usages: dict[str, AccountUsage]) -> None:
         """刷新成功后调用；单户号失败不影响其他户号与主数据链路。"""
+        changed = price_changed(self._stored_price, self.price)
+        if changed:
+            self._reset_cost_cursors()
+            _LOGGER.info(
+                "电价已变更（%.4f → %.4f），成本统计将全量重算",
+                self._stored_price or 0.0,
+                self.price,
+            )
+        self._cursors[self._PRICE_KEY] = self.price
+        self._stored_price = self.price
         for usage in usages.values():
             account_number = usage.account.cons_no_src or usage.account.cons_no
             if not account_number:
@@ -194,15 +233,23 @@ class StatisticsImporter:
                     unit="kWh",
                     unit_class="energy",
                 )
-                await self._async_import_series(
-                    cost_series(usage.readings, self.price),
-                    account_id=usage.account.account_id,
-                    stat_key=_STAT_KEY_COST,
-                    stat_id=cost_statistic_id(account_number),
-                    name=f"国家电网 累计电费 {account_number[-4:]}",
-                    unit="CNY",
-                    unit_class=None,
-                )
+                if self.price <= 0:
+                    if changed:
+                        self._async_remove_cost_statistics(account_number)
+                        _LOGGER.info(
+                            "电价已设为 0，成本统计 %s 已移除",
+                            cost_statistic_id(account_number),
+                        )
+                else:
+                    await self._async_import_series(
+                        cost_series(usage.readings, self.price),
+                        account_id=usage.account.account_id,
+                        stat_key=_STAT_KEY_COST,
+                        stat_id=cost_statistic_id(account_number),
+                        name=f"国家电网 累计电费 {account_number[-4:]}",
+                        unit="CNY",
+                        unit_class=None,
+                    )
             except Exception:  # noqa: BLE001 - 统计是附加能力，失败不影响实体
                 _LOGGER.warning(
                     "统计回填失败（户号尾号 %s）", account_number[-4:], exc_info=True

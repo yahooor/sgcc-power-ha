@@ -128,5 +128,11 @@
         "name": "History owe"
       }
     }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh data",
+      "description": "Immediately fetch the latest electricity data from the State Grid App, bypassing the update interval."
+    }
   }
 }

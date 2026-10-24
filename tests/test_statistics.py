@@ -109,3 +109,46 @@ def test_cost_series_prefers_upstream_and_falls_back_to_price() -> None:
     ]
     # price=0 关闭成本统计
     assert cost_series(readings, 0.0) == []
+
+
+def test_price_change_detection() -> None:
+    from custom_components.sgcc_power.statistics import price_changed
+
+    assert price_changed(None, 0.588) is False  # 首次记录不算变更
+    assert price_changed(0.588, 0.588) is False  # 未变
+    assert price_changed(0.588, 0.638) is True  # 变了
+    assert price_changed(0.588, 0.0) is True  # 关闭成本也是变更
+
+
+def test_reset_cost_cursors_only_touches_cost() -> None:
+    from types import SimpleNamespace
+
+    from custom_components.sgcc_power.statistics import StatisticsImporter
+
+    imp = StatisticsImporter(SimpleNamespace(), price=0.638)
+    imp._cursors = {
+        "_price": 0.588,
+        "acct1": {
+            "total_energy": {
+                "last_imported_day": "2026-10-01",
+                "last_imported_total": 100.0,
+            },
+            "total_cost": {
+                "last_imported_day": "2026-10-01",
+                "last_imported_total": 58.8,
+            },
+        },
+        "acct2": {
+            "total_cost": {
+                "last_imported_day": "2026-09-01",
+                "last_imported_total": 30.0,
+            }
+        },
+    }
+    imp._reset_cost_cursors()
+    assert (
+        imp._cursors["acct1"]["total_energy"]["last_imported_total"] == 100.0
+    )  # 电量游标保留
+    assert "total_cost" not in imp._cursors["acct1"]
+    assert "total_cost" not in imp._cursors["acct2"]
+    assert imp._cursors["_price"] == 0.588  # 顶层价格键不受影响

@@ -1,0 +1,6 @@
+refresh:
+  name: Refresh data
+  description: >-
+    Immediately fetch the latest electricity data from the State Grid App,
+    bypassing the configured update interval. Use this after topping up the
+    prepaid balance or when you want fresh data right away.

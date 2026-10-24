@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from functools import partial
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import SgccPowerAppApi
@@ -25,11 +27,32 @@ from .models import DeviceProfile, LoginSession
 from .statistics import StatisticsImporter
 from .synthetic_device import build_device_profile
 
+_LOGGER = logging.getLogger(__name__)
+
 __all__ = [
     "async_get_config_entry_diagnostics",
     "async_setup_entry",
     "async_unload_entry",
 ]
+
+
+async def _async_handle_refresh(hass: HomeAssistant, call: ServiceCall) -> None:
+    """sgcc_power.refresh：立即拉取所有账户的最新数据。"""
+    runtimes: dict[str, SgccPowerRuntimeData] = hass.data.get(DOMAIN, {})
+    targets = [r.coordinator.async_request_refresh() for r in runtimes.values()]
+    if not targets:
+        _LOGGER.warning("sgcc_power.refresh 被调用，但当前没有已加载的账户")
+        return
+    await asyncio.gather(*targets)
+
+
+def _register_services(hass: HomeAssistant) -> None:
+    if not hass.services.has_service(DOMAIN, "refresh"):
+        hass.services.async_register(
+            DOMAIN,
+            "refresh",
+            lambda call: _async_handle_refresh(hass, call),
+        )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -74,6 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator=coordinator,
         remove_update_listener=remove_update_listener,
     )
+    _register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -85,6 +109,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     if runtime is not None:
         runtime.remove_update_listener()
+    if not hass.data.get(DOMAIN) and hass.services.has_service(DOMAIN, "refresh"):
+        hass.services.async_remove(DOMAIN, "refresh")
     return True
 
 
