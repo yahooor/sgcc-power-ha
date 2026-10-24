@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install gmssl==3.2.2 "cryptography>=42.0.0" pytest ruff tzdata
+          pip install gmssl==3.2.2 "cryptography>=42.0.0" aiohttp pytest ruff tzdata
       - name: Lint
         run: ruff check custom_components tests
       - name: Unit + contract tests
@@ -30,16 +30,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        hass: ["2026.10.2", "2026.4.4", "2025.7.4"]
+        include:
+          - hass: "2026.10.2"
+            py: "3.14"
+          - hass: "2026.4.4"
+            py: "3.14"
+          - hass: "2025.7.4"
+            py: "3.13"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.py }}
       - name: Install Home Assistant ${{ matrix.hass }}
         run: |
           python -m pip install --upgrade pip
-          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography>=42.0.0"
+          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2
       - name: Import smoke (catches removed-API breakage)
         run: python scripts/ha_import_smoke.py
 

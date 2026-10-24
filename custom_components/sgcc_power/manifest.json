@@ -1,6 +1,9 @@
 {
   "domain": "sgcc_power",
   "name": "国家电网电力",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@yahooor"
   ],
@@ -10,8 +13,7 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/yahooor/sgcc-power-ha/issues",
   "requirements": [
-    "gmssl==3.2.2",
-    "cryptography>=42.0.0"
+    "gmssl==3.2.2"
   ],
   "version": "1.11.0"
 }
