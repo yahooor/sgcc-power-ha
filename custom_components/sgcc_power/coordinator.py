@@ -30,6 +30,7 @@ from .const import (
     DOMAIN,
 )
 from .models import AccountUsage
+from .statistics import StatisticsImporter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,10 +57,12 @@ class SgccPowerDataCoordinator(DataUpdateCoordinator[dict[str, AccountUsage]]):
         entry: ConfigEntry,
         api: SgccPowerAppApi,
         legacy_writer: LegacyStoreWriter | None = None,
+        statistics_importer: StatisticsImporter | None = None,
     ) -> None:
         self.entry = entry
         self.api = api
         self.legacy_writer = legacy_writer
+        self.statistics_importer = statistics_importer
         self.configured_options = dict(entry.options)
         hours = int(
             entry.options.get(CONF_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS)
@@ -89,6 +92,8 @@ class SgccPowerDataCoordinator(DataUpdateCoordinator[dict[str, AccountUsage]]):
             if self.entry.options.get(CONF_COMPAT_LEGACY_STORE, True):
                 if self.legacy_writer is not None:
                     await self.legacy_writer.async_write(result)
+            if self.statistics_importer is not None:
+                await self.statistics_importer.async_import(result)
             return result
         finally:
             # Login can succeed before an electricity query fails. Persist the

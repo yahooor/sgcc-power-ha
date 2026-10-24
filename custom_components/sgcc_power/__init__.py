@@ -20,6 +20,7 @@ from .const import (
 from .coordinator import SgccPowerDataCoordinator, SgccPowerRuntimeData
 from .diagnostics import async_get_config_entry_diagnostics
 from .models import DeviceProfile, LoginSession
+from .statistics import StatisticsImporter
 from .synthetic_device import build_device_profile
 
 __all__ = [
@@ -52,8 +53,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         login_session=LoginSession.from_dict(entry.data.get(CONF_LOGIN_SESSION)),
         profile_provider=async_profile_provider,
     )
+    statistics_importer = StatisticsImporter(hass)
+    await statistics_importer.async_load()
     coordinator = SgccPowerDataCoordinator(
-        hass, entry, api, legacy_writer=LegacyStoreWriter(hass)
+        hass,
+        entry,
+        api,
+        legacy_writer=LegacyStoreWriter(hass),
+        statistics_importer=statistics_importer,
     )
     await coordinator.async_config_entry_first_refresh()
     remove_update_listener = entry.add_update_listener(_async_reload_entry)
