@@ -48,12 +48,15 @@ async def _async_handle_refresh(hass: HomeAssistant, call: ServiceCall) -> None:
 
 
 def _register_services(hass: HomeAssistant) -> None:
-    if not hass.services.has_service(DOMAIN, "refresh"):
-        hass.services.async_register(
-            DOMAIN,
-            "refresh",
-            lambda call: _async_handle_refresh(hass, call),
-        )
+    if hass.services.has_service(DOMAIN, "refresh"):
+        return
+
+    async def _async_refresh(call: ServiceCall) -> None:
+        await _async_handle_refresh(hass, call)
+
+    # 必须注册协程函数本体：lambda 包装会被 HA 当作 callback 丢进执行器，
+    # 返回的协程无人 await，服务实际不生效。
+    hass.services.async_register(DOMAIN, "refresh", _async_refresh)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
