@@ -34,12 +34,15 @@ jobs:
           - hass: "2026.10.2"
             py: "3.14"
             aiodns: "4.0.4"
+            crypto: "45.0.6"
           - hass: "2026.4.4"
             py: "3.14"
-            aiodns: "4.0.4"
+            aiodns: "4.0.0"
+            crypto: "46.0.7"
           - hass: "2025.7.4"
             py: "3.13"
             aiodns: "3.5.0"
+            crypto: "45.0.3"
             legacy: true
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +55,10 @@ jobs:
         continue-on-error: ${{ matrix.legacy == true }}
         run: |
           python -m pip install --upgrade pip
-          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography>=42.0.0" "aiodns==${{ matrix.aiodns }}" "pycares>=4.9.0"
+          # 按该 HA 版本的官方 package_constraints 精确钉齐（aiodns/pycares 组合
+          # 是老版本依赖解析的已知坑）
+          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography==${{ matrix.crypto }}" "aiodns==${{ matrix.aiodns }}" "pycares>=4.9.0,<6"
+          python -c "import aiohttp, aiodns, pycares; print('OK aiohttp', aiohttp.__version__, '| aiodns', aiodns.__version__, '| pycares', pycares.__version__)"
           python -c "import aiohttp, aiodns, pycares; print('aiohttp', aiohttp.__version__, 'aiodns', aiodns.__version__, 'pycares', pycares.__version__)"
       - name: Import smoke (catches removed-API breakage)
         run: python scripts/ha_import_smoke.py
