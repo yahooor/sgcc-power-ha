@@ -305,10 +305,11 @@ class StatisticsImporter:
         tiered_toggled = (
             self._stored_tiered is not None and self._stored_tiered != self.tiered
         )
-        if changed or tiered_toggled:
+        cost_reset = changed or tiered_toggled
+        if cost_reset:
             self._reset_cost_cursors()
             _LOGGER.info(
-                "成本口径已变更（电价 %.4f→%.4f，阶梯 %s→%s），成本统计将全量重算",
+                "成本口径已变更（电价 %.4f→%.4f，阶梯 %s→%s），成本统计将整体重建",
                 self._stored_price or 0.0,
                 self.price,
                 self._stored_tiered,
@@ -333,13 +334,18 @@ class StatisticsImporter:
                     unit_class="energy",
                 )
                 if self.price <= 0:
-                    if changed:
+                    if cost_reset:
                         self._async_remove_cost_statistics(account_number)
                         _LOGGER.info(
                             "电价已设为 0，成本统计 %s 已移除",
                             cost_statistic_id(account_number),
                         )
                 else:
+                    if cost_reset:
+                        # 全量重算只能覆盖当前查询窗口；先整体移除旧统计，
+                        # 避免窗口外的旧行残留导致累计 sum 断崖（能源面板
+                        # 跨界日会算出负成本）。
+                        self._async_remove_cost_statistics(account_number)
                     await self._async_import_series(
                         cost_series(usage.readings, self.price, tiered=self.tiered),
                         account_id=usage.account.account_id,
