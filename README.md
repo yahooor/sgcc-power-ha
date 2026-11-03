@@ -78,6 +78,13 @@ state_grid 系集成自 2026 年起 **95598 网页登录链路失效、无法获
 2. 将 `custom_components/sgcc_power` 复制到 HA 配置目录的 `custom_components`
 3. 重启 Home Assistant
 
+## 本地开发
+
+```bash
+pip install -r requirements-dev.txt   # 测试与 lint 依赖
+pytest -q && ruff check .
+```
+
 ## 配置
 
 1. 设置 → 设备与服务 → 添加集成 → 搜索“国家电网电力”
