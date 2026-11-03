@@ -1,0 +1,16 @@
+# 开发/测试依赖（2026-11-03 补）
+#
+# 此前本仓库的 pyproject.toml 只有 [tool.pytest.ini_options] 配置，没有声明依赖，
+# 干净环境 clone 后直接跑 pytest 会因缺包失败。
+#
+# 注意 gmssl：国密 SM3/SM4 实现，测试与签名逻辑都要用。
+# 2026-11-03 删除本仓 .venv 后才发现它此前只装在 venv 里，
+# 系统解释器没有 → pytest 直接 collection error。必须显式声明。
+#
+# 安装：pip install -r requirements-dev.txt
+pytest>=8
+aiohttp>=3.9
+cryptography>=42
+voluptuous>=0.13
+gmssl>=3.2
+ruff>=0.7
