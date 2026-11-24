@@ -34,14 +34,18 @@ jobs:
           - hass: "2026.10.2"
             py: "3.14"
             aiodns: "4.0.4"
+            pycares: ">=4.9.0"
             crypto: "50.0.1"
           - hass: "2026.4.4"
             py: "3.14"
             aiodns: "4.0.0"
+            pycares: ">=4.9.0"
             crypto: "46.0.7"
           - hass: "2025.7.4"
             py: "3.13"
             aiodns: "3.5.0"
+            # aiodns 3.5 still imports the pre-5.0 DNS result classes.
+            pycares: ">=4.9.0,<5"
             crypto: "45.0.3"
             legacy: true
     steps:
@@ -57,7 +61,7 @@ jobs:
           python -m pip install --upgrade pip
           # 按该 HA 版本的官方 package_constraints 精确钉齐（aiodns/pycares 组合
           # 是老版本依赖解析的已知坑）
-          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography==${{ matrix.crypto }}" "aiodns==${{ matrix.aiodns }}" "pycares>=4.9.0"
+          pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography==${{ matrix.crypto }}" "aiodns==${{ matrix.aiodns }}" "pycares${{ matrix.pycares }}"
           python -c "import aiohttp, aiodns, pycares; print('OK aiohttp', aiohttp.__version__, '| aiodns', aiodns.__version__, '| pycares', pycares.__version__)"
           pip show pycares aiodns | grep -E "Name|Version|Location" || true
           python -c "from importlib.metadata import version; print({p: version(p) for p in ('aiohttp', 'aiodns', 'pycares', 'cffi')})"
