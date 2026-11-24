@@ -330,3 +330,33 @@ def test_payload_shapes_match_wire_contract() -> None:
     assert (
         monthly["data"]["startYm"] == "202601" and monthly["data"]["endYm"] == "202612"
     )
+
+
+def test_meter_reading_cache_follows_corrected_bill_end_date(monkeypatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from custom_components.sgcc_power.models import MonthlyBill
+
+    api, _ = make_api()
+    api_data = AsyncMock(side_effect=[
+        {"list": [{"meterBarCode": "synthetic-meter"}]},
+        {"list": [{"time": "2000", "readPq": "120"}]},
+        {"list": [{"meterBarCode": "synthetic-meter"}]},
+        {"list": [{"time": "2000", "readPq": "111"}]},
+    ])
+    monkeypatch.setattr(api, "_async_authenticated_data", api_data)
+    month = date(2040, 4, 1)
+    original = MonthlyBill(month, 29.0, 15.0)
+    corrected = MonthlyBill(month, 29.0, 15.0, end_date=date(2040, 4, 27))
+    account = _account()
+
+    async def check():
+        first = await api.async_query_month_end_meter(account, original)
+        second = await api.async_query_month_end_meter(account, corrected)
+        repeated = await api.async_query_month_end_meter(account, corrected)
+        assert (first.day, first.reading) == (date(2040, 4, 30), 120.0)
+        assert (second.day, second.reading) == (date(2040, 4, 27), 111.0)
+        assert repeated is second
+        assert api_data.await_count == 4
+
+    asyncio.run(check())

@@ -705,14 +705,14 @@ class SgccPowerAppApi:
         self, account: PowerAccount, bill: MonthlyBill
     ) -> MeterReading | None:
         """Query the last meter reading on the latest settled billing date."""
-        cache_key = (account.account_id, bill.month)
-        if cache_key in self._meter_cache:
-            return self._meter_cache[cache_key]
         reading_date = bill.end_date or date(
             bill.month.year,
             bill.month.month,
             calendar.monthrange(bill.month.year, bill.month.month)[1],
         )
+        cache_key = (account.account_id, reading_date)
+        if cache_key in self._meter_cache:
+            return self._meter_cache[cache_key]
         meter_data = await self._async_authenticated_data(
             METER_LIST_PATH,
             build_meter_payload(account, reading_date),

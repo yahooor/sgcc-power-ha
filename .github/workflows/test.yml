@@ -60,10 +60,7 @@ jobs:
           pip install "homeassistant==${{ matrix.hass }}" gmssl==3.2.2 "cryptography==${{ matrix.crypto }}" "aiodns==${{ matrix.aiodns }}" "pycares>=4.9.0"
           python -c "import aiohttp, aiodns, pycares; print('OK aiohttp', aiohttp.__version__, '| aiodns', aiodns.__version__, '| pycares', pycares.__version__)"
           pip show pycares aiodns | grep -E "Name|Version|Location" || true
-          python -c "
-from importlib.metadata import version
-for p in ('aiohttp','aiodns','pycares','cffi'):
-    print(p, version(p))"
+          python -c "from importlib.metadata import version; print({p: version(p) for p in ('aiohttp', 'aiodns', 'pycares', 'cffi')})"
           python -c "import aiohttp, aiodns, pycares; print('aiohttp', aiohttp.__version__, 'aiodns', aiodns.__version__, 'pycares', pycares.__version__)"
       - name: Import smoke (catches removed-API breakage)
         run: python scripts/ha_import_smoke.py
